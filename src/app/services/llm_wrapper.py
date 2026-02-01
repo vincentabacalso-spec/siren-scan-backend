@@ -12,8 +12,8 @@ LLM = ChatOpenAI(
 
 TEMPLATE ="""
         You are an expert cybersecurity analyst. Based on the results from 
-        a phishing email detection model: {model_report} that was run on the email body: {email_body},
-        a VirusTotal scan: {virus_total_report}, and a "Have I Been Pwned" check: {pwned_report}. 
+        a phishing email detection model: {model_report} that was run on the email body: {email_body}, and
+        a VirusTotal scan: {virus_total_report}.
 
         Produce: 
         1. A synthesis of the findings from all three sources.
@@ -25,10 +25,10 @@ TEMPLATE ="""
         """
 
 
-def LLM_interface(model_report, virus_total_report, pwned_report, email_body):
+def LLM_interface(model_report, virus_total_report, email_body):
     synthesis_prompt = PromptTemplate.from_template(TEMPLATE)
     llm_chain = LLMChain(llm=LLM, prompt=synthesis_prompt)
-    response = llm_chain.invoke(input = {"model_report": model_report, "email_body": email_body, "virus_total_report": virus_total_report, "pwned_report": pwned_report})
+    response = llm_chain.invoke(input = {"model_report": model_report, "email_body": email_body, "virus_total_report": virus_total_report})
     return response["text"]
 
 
