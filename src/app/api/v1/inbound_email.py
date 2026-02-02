@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request, UploadFile
 from fastapi.responses import JSONResponse
-from typing import Optional
 from typing import cast
 from app.firebase import db
 from app.services.llm_wrapper import LLM_interface
@@ -14,13 +13,16 @@ import logging
 import json
 import tempfile
 import logging
+from starlette.datastructures import UploadFile
+import tempfile
+import os
 
 logger = logging.getLogger("uvicorn.error")  
 logger.info("This will appear in the console")
 router = APIRouter()
 
-@router.post("/mailgun/inbound")
-async def inbound_email(request: Request, attachment: Optional[UploadFile] = None):
+@router.post("/mailgun/inbound", response_model=None)
+async def inbound_email(request: Request):
     try:
         form = await request.form()
         sender = form.get("sender")
@@ -28,7 +30,7 @@ async def inbound_email(request: Request, attachment: Optional[UploadFile] = Non
         body_plain = form.get("body-plain")
         body_html = form.get("body-html")
         inbound_id = form.get("token")
-        file = form.get("attachment-1") 
+        attachment = form.get("attachment-1") 
         logging.info(f"token-Id: {inbound_id}")
         print( f"Print: token-Id: {inbound_id}" )
 
@@ -64,16 +66,29 @@ async def inbound_email(request: Request, attachment: Optional[UploadFile] = Non
                 print( f"Print: Inbound email stored with ID: {email_data}" )
                 logging.info(f"Inbound email stored with ID: {email_data}")
 
-                if file: 
-                    contents = await file.read()
-                    await file.seek(0)
-                    with tempfile.NamedTemporaryFile(suffix=".pdf") as temp:
+                file_response = {}
+                print(f"print: file {attachment}")
+                print(type(attachment))
+
+                file_response = {}
+
+                if isinstance(attachment, UploadFile):
+                    contents = await attachment.read()
+                    await attachment.seek(0)
+                    print("Now inside isinstance")
+                    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp:
                         temp.write(contents)
                         temp.flush()
-                        file_response = scan_file(temp.name)
-                        file_response["inbound_email_id"] = inbound_id
+                        temp_path = temp.name
+                        print(temp_path)
 
-                    db.collection("file_analyses").document().set(file_response)
+                    try:
+                        file_response = scan_file(temp_path)
+                        file_response["inbound_email_id"] = inbound_id
+                        print(file_response)
+                        db.collection("file_analyses").document().set(file_response)
+                    finally:
+                        os.remove(temp_path)
                 
                 #processing HIBP and saving to DB
                 hibp_id = f"hibp_{hashed_email}"
@@ -139,7 +154,7 @@ async def inbound_email(request: Request, attachment: Optional[UploadFile] = Non
                 
                 
                 #llm synthesis report
-                LLM_res = LLM_interface(model_result, json.dumps(url_analysis) if url_analysis else "{}", body_plain) #take note of attachments
+                LLM_res = LLM_interface(model_result, json.dumps(url_analysis) if url_analysis else "{}", body_plain, json.dumps(file_response)) #take note of attachments
                 logging.info(f"LLM Synthesis: {LLM_res}")
                 print( f"Print: LLM Synthesis: {LLM_res}" )
                 db.collection("inbound_emails").document(email_data_id).update({"LLM_synthesis": LLM_res})

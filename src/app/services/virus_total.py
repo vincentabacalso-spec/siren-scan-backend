@@ -60,10 +60,11 @@ def scan_file(file_path: str) -> dict:
             status = data["data"]["attributes"]["status"]
             if status == "completed":
                 stats = data["data"]["attributes"]["stats"]
+                file_name = data.get("meta", {}).get("file_info", {}).get("name")
                 return {
                     "analysis_id": analysis_id,
                     "stats": stats,
-                    "file_name": data["meta"]["file_info"]["name"]
+                    "file_name": file_name
                 }
 
             time.sleep(1)
