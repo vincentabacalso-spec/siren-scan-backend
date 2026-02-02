@@ -53,7 +53,11 @@ def scan_file(file_path: str) -> dict:
         print(f"File uploaded successfully. Analysis ID: {analysis_id}")
         analysis_endpoint = f"https://www.virustotal.com/api/v3/analyses/{analysis_id}"
 
-        for _ in range(30): 
+        # Increase max attempts and use exponential backoff
+        max_attempts = 60  # Up to 5 minutes
+        wait_time = 2  # Start with 2 seconds
+
+        for attempt in range(max_attempts): 
             result = requests.get(analysis_endpoint, headers={'accept': 'application/json', 'x-apikey': VIRUS_TOTAL_API_KEY})
             data = result.json()
 
@@ -66,7 +70,9 @@ def scan_file(file_path: str) -> dict:
                     "stats": stats,
                     "file_name": file_name
                 }
-
+            
+            # Exponential backoff: 2s, 4s, 8s, then cap at 10s
+            current_wait = min(wait_time * (2 ** min(attempt // 10, 2)), 10)
             time.sleep(1)
 
         raise Exception("VirusTotal file scan timed out")

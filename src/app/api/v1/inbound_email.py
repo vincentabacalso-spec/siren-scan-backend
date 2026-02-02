@@ -8,6 +8,7 @@ from app.services.html_parser import parse_html_content
 from app.services.HIBP import HIBP_check
 from app.services.model import model_interface
 from app.services.email_hasher import hash_email
+from app.services.resend_service import send_email
 from google.cloud.firestore_v1 import DocumentSnapshot
 import logging
 import json
@@ -158,7 +159,8 @@ async def inbound_email(request: Request):
                 logging.info(f"LLM Synthesis: {LLM_res}")
                 print( f"Print: LLM Synthesis: {LLM_res}" )
                 db.collection("inbound_emails").document(email_data_id).update({"LLM_synthesis": LLM_res})
-
+                
+                send_email(str(sender))
                 return JSONResponse(status_code=200, content={"message": "Inbound email processed successfully."})
 
     except Exception as e:
